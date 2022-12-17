@@ -8,20 +8,22 @@ import numpy as np
 # from descartes import PolygonPatch
 from shapely.geometry import Polygon
 import geopandas as gpd  
+import random 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, confusion_matrix
+import rioxarray
 
 locs = pd.read_csv("localities.csv")
 edos_shp = "dest20gw.zip"
 margin = 50 ### margin around the points in km
 buffer_size = 10 ### buffer around the points in km to avoid seudo absenses
 crs = "epsg:4326"
-
+var_names = ["elevation", "mean_temp", "annu_prec"]
 
 ### extract species coord
 sp = locs.loc[locs["species"] == "species_01", :].dropna(axis=0)
 sp["point"] = 1 ### presence
 pres_points = gpd.GeoDataFrame(sp, crs=crs, geometry=gpd.points_from_xy(sp.longitude, sp.latitude))
-
-# coords = [(x,y) for x, y in zip(sp.longitude, sp.latitude)]
 
 ### import shapefiles
 edos_poly = gpd.read_file(edos_shp)
@@ -52,27 +54,30 @@ def Random_Points_in_polygon(polygon, number, crs):
     df["longitude"] = np.random.uniform( polygon.bounds["minx"], polygon.bounds["maxx"], number )
     df["latitude"] = np.random.uniform( polygon.bounds["miny"], polygon.bounds["maxy"], number )
     df["point"] = 0 ### absence
-    # df['points'] = list(zip(x,y))
     gdf_points = gpd.GeoDataFrame(df, crs=crs, geometry=gpd.points_from_xy(df["longitude"], df["latitude"]))
-    absences = gpd.overlay(gdf_points, polygon, how="intersection")
-    return absences
+    res_points = gpd.overlay(gdf_points, polygon, how="intersection")
+    return res_points
 
 absences_points = Random_Points_in_polygon(absences_poly, 1000, crs)
 
 ### concat all points
 all_points = pd.concat([pres_points[["point", "longitude", "latitude", "geometry"]],
                         absences_points[["point", "longitude", "latitude", "geometry"]]])
-# print(all_points)
-
 
 ### load raster 
 elev = rasterio.open('worldclim_2.1_30s_elev/wc2.1_30s_elev.tif')
+# print(elev.bounds)
+# elev, elev_transform = mask(elev, extent_poly.geometry, crop=True)
+# elev_crop = rasterio.open('elev_crop.tif', 'w', driver='GTiff',
+#                           height=elev.shape[0], width=elev.shape[1], count=1,
+#                           dtype=elev.dtype, crs=crs,transform=elev_transform,
+
+# )
+# elev = rasterio.open("elev_crop.tif")
+
+# print(elev.bounds)
 temp = rasterio.open("worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif")
 prec = rasterio.open("worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif")
-# print(elev.transform)
-# elev.crs = crs
-# print(elev)
-# out_img, out_transform = mask(elev, extent_poly.geometry, crop=True)
 
 ### extract data from raster
 coord_list = [(x,y) for x,y in zip(all_points['geometry'].x , all_points['geometry'].y)]
@@ -81,18 +86,42 @@ coord_list = [(x,y) for x,y in zip(all_points['geometry'].x , all_points['geomet
 all_points['elevation'] = [x[0] for x in elev.sample(coord_list)]
 all_points['mean_temp'] = [x[0] for x in temp.sample(coord_list)]
 all_points['annu_prec'] = [x[0] for x in prec.sample(coord_list)]
-print(all_points)
+# print(all_points)
 
-### modelos
+### split dataset
+split_points = random.sample(range(len(all_points.index)), round(len(all_points.index)*0.25))
+train_x = all_points.iloc[split_points, :].loc[:, var_names]
+train_y = all_points.iloc[split_points, :].loc[:, "point"].to_list()
+test_x = all_points.loc[~all_points.index.isin(split_points), var_names] 
+test_y = all_points.loc[~all_points.index.isin(split_points), "point"].to_list() 
+
+### train model
+rf_model = RandomForestRegressor(n_estimators = 10, criterion = 'friedman_mse', max_depth = None,
+                                 oob_score = False, n_jobs = -1, random_state = 123)
+rf_model.fit(train_x, train_y)
+
+### predict test and compute 
+prediction = rf_model.predict(X = test_x)
+rmse = mean_squared_error(y_true = test_y, y_pred = prediction, squared = False)
+# con_matrx = confusion_matrix(y_true = test_y, y_pred = prediction)
+
+# print(rmse)
+### predict for the complete image
+# rds = rioxarray.open_rasterio("worldclim_2.1_30s_elev/wc2.1_30s_elev.tif")
+# # rds.name = "data"
+# # df = rds.squeeze().to_dataframe().reset_index()
+# # geometry = gpd.points_from_xy(df.x, df.y)
+# # gdf = gpd.GeoDataFrame(df, crs=rds.rio.crs, geometry=geometry)
+
+# print(rds)
 
 
 fig, ax = plt.subplots()
 plt.xlim([limits[0], limits[2]])
 plt.ylim([limits[1], limits[3]])
 ax.set_aspect('equal')
-# rasterio.plot.show(out_img, ax=ax, cmap='viridis')
-# show(elev.read(1), transform=elev.transform, cmap='gray') 
-edos_poly.plot(ax = ax, color = 'gray', edgecolor = 'black')
+show(elev.read(1), transform=elev.transform, cmap='gray') 
+# edos_poly.plot(ax = ax, color = 'gray', edgecolor = 'black')
 # buf.plot(ax = ax, color = 'cyan', edgecolor = 'black')
 # extent_poly.plot(ax = ax, color = 'cyan', edgecolor = 'black')
 # absences_poly.plot(ax = ax, color = 'cyan', edgecolor = 'black')
