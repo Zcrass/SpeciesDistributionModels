@@ -1,6 +1,7 @@
 worldclim_2.1_30s_bio/
 worldclim_2.1_30s_elev/
 shapefiles/
+variables/
 SDM_v1.py
 tmp.tif
 

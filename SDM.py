@@ -6,23 +6,25 @@ import geopandas as gpd
 import random 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-import rioxarray
 from sdm_functions import Random_Points_in_polygon, mask_raster, resulting_raster
 import numpy as np
+import os
+import sys
 
 if __name__ == "__main__":
     ### define parameters
-    locs = pd.read_csv("localities.csv")
-    species_name = "species_02"
-    margin = 1/111*50 ### margin around the points (units according to crs)
-    buffer_size = 1/111*10 ### buffer around the points to avoid seudo absenses (units according to crs)
+    locs_file = sys.argv[1]
+#     species_name = "species_02"
+
+    
+#     variables = {"elevation":"worldclim_2.1_30s_elev/wc2.1_30s_elev.tif",
+#                  "mean_temp":"worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif",
+#                  "annu_prec":"worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif",
+#                 }
+    margin = float(sys.argv[2]) ### margin around the points (units according to crs)
+    buffer_size = float(sys.argv[3]) ### buffer around the points to avoid seudo absenses (units according to crs)
+    variables_folder = sys.argv[4]
     crs = "epsg:4326"
-    
-    variables = {"elevation":"worldclim_2.1_30s_elev/wc2.1_30s_elev.tif",
-                 "mean_temp":"worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif",
-                 "annu_prec":"worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif",
-                }
-    
     # var_names = ["mean_temp", "annu_prec"]
     # var_names = ["elevation"]
 
@@ -30,10 +32,19 @@ if __name__ == "__main__":
     ##### START 
     ##################################################
     ### extract species coord
-    sp = locs.loc[locs["species"] == species_name, :].dropna(axis=0)
+    sp = pd.read_csv(locs_file).dropna(axis=0)    
+#     sp = locs.loc[locs["species"] == species_name, :].dropna(axis=0)
     sp["point"] = 1 ### presence
     pres_points = gpd.GeoDataFrame(sp, crs=crs, geometry=gpd.points_from_xy(sp.longitude, sp.latitude))
 
+    ##################################################
+    ### list rasters layers
+    variables_files = os.listdir(variables_folder)
+    variables = {}
+    for key in variables_files:
+            variables[key] = variables_folder + key
+            
+    ##################################################
     ##### create area limits 
     limits = [(sp.longitude.min() - margin),
             (sp.latitude.min()  - margin),
