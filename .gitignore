@@ -1,2 +1,5 @@
 worldclim_2.1_30s_bio/
 worldclim_2.1_30s_elev/
+tmp_rasters/
+shapefiles/
+SDM_v1.py
