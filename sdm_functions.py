@@ -28,3 +28,9 @@ def mask_raster(raster_path, mask_poly, crs, out_raster):
     new_raster = rasterio.open(out_raster)
     return new_raster
 
+def resulting_raster(base_raster, new_vals):
+    raster= rasterio.open(base_raster)
+    results_raster = raster.read(1)
+    results_transform = raster.transform
+    results_raster = new_vals.reshape(results_raster.shape)
+    return results_raster, results_transform

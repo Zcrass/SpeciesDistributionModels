@@ -7,18 +7,23 @@ import random
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import rioxarray
-from sdm_functions import Random_Points_in_polygon, mask_raster
+from sdm_functions import Random_Points_in_polygon, mask_raster, resulting_raster
 import numpy as np
 
 if __name__ == "__main__":
     ### define parameters
     locs = pd.read_csv("localities.csv")
-    species_name = "species_01"
+    species_name = "species_02"
     margin = 1/111*50 ### margin around the points (units according to crs)
     buffer_size = 1/111*10 ### buffer around the points to avoid seudo absenses (units according to crs)
     crs = "epsg:4326"
-    # var_names = ["elevation", "mean_temp", "annu_prec"]
-    var_names = ["mean_temp", "annu_prec"]
+    
+    variables = {"elevation":"worldclim_2.1_30s_elev/wc2.1_30s_elev.tif",
+                 "mean_temp":"worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif",
+                 "annu_prec":"worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif",
+                }
+    
+    # var_names = ["mean_temp", "annu_prec"]
     # var_names = ["elevation"]
 
     ##################################################
@@ -52,18 +57,29 @@ if __name__ == "__main__":
     ### concat all points
     all_points = pd.concat([pres_points[["point", "longitude", "latitude", "geometry"]],
                             absences_points[["point", "longitude", "latitude", "geometry"]]])
-
-    ### load raster 
-    elev = mask_raster("worldclim_2.1_30s_elev/wc2.1_30s_elev.tif", extent_poly, crs, "worldclim_2.1_30s_elev/wc2.1_30s_elev_tmp.tif")
-    temp = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_1_tmp.tif")
-    prec = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_12_tmp.tif")
-
-    ### extract data from raster
     coord_list = [(x,y) for x,y in zip(all_points["geometry"].x , all_points["geometry"].y)]
 
-    all_points[var_names[0]] = [x[0] for x in elev.sample(coord_list)]
-    all_points[var_names[1]] = [x[0] for x in temp.sample(coord_list)]
-    all_points[var_names[2]] = [x[0] for x in prec.sample(coord_list)]
+    ##################################################
+    var_names = list(variables.keys())
+    raster_df = pd.DataFrame()
+    
+    for var in var_names:
+        masked = mask_raster(variables[var], extent_poly, crs, "tmp.tif")
+        all_points[var] = [x[0] for x in masked.sample(coord_list)]
+        var_df = pd.DataFrame(np.array(masked.read()).reshape([1,-1]).T)
+        raster_df = pd.concat([raster_df, var_df], axis=1)
+    ### load raster 
+#     elev = mask_raster("worldclim_2.1_30s_elev/wc2.1_30s_elev.tif", extent_poly, crs, "worldclim_2.1_30s_elev/wc2.1_30s_elev_tmp.tif")
+#     temp = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_1_tmp.tif")
+#     prec = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_12_tmp.tif")
+
+    ### extract data from raster
+    
+#     coord_list = [(x,y) for x,y in zip(all_points["geometry"].x , all_points["geometry"].y)]
+
+#     all_points[var_names[0]] = [x[0] for x in elev.sample(coord_list)]
+#     all_points[var_names[1]] = [x[0] for x in temp.sample(coord_list)]
+#     all_points[var_names[2]] = [x[0] for x in prec.sample(coord_list)]
 
     ### split dataset
     split_points = random.sample(range(len(all_points.index)), round(len(all_points.index)*0.25))
@@ -84,15 +100,26 @@ if __name__ == "__main__":
     print(rmse)
     
     ### predict to complete rasters
-    raster_df = pd.DataFrame()
-    raster_df = pd.concat([raster_df, pd.DataFrame(np.array(elev.read()).reshape([1,-1]).T)], axis=1)
-    raster_df = pd.concat([raster_df, pd.DataFrame(np.array(temp.read()).reshape([1,-1]).T)], axis=1)
-    raster_df = pd.concat([raster_df, pd.DataFrame(np.array(prec.read()).reshape([1,-1]).T)], axis=1)
+#     raster_df = pd.DataFrame()
+#     for var in var_names:
+        # var_df = pd.DataFrame(np.array(variables[var].read()).reshape([1,-1]).T)
+        # raster_df = pd.concat([raster_df, var_df], axis=1)
+            
+#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(elev.read()).reshape([1,-1]).T)], axis=1)
+#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(temp.read()).reshape([1,-1]).T)], axis=1)
+#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(prec.read()).reshape([1,-1]).T)], axis=1)
     raster_df.columns = var_names
     raster_prediction = rf_model.predict(X = raster_df)
-    results_raster = elev.read(1)
-    results_transform = elev.transform
-    results_raster = raster_prediction.reshape(results_raster.shape)
+    
+    ### proyect results
+#     print(variables[var_names[1]])
+#     results_raster = rasterio.open(variables[var_names[1]]).read(1)
+#     results_raster = variables[var_names[1]].read(1)
+#     results_transform = results_raster.transform
+#     results_raster = raster_prediction.reshape(results_raster.shape)
+#     print(results_transform)
+    results_raster, results_transform = resulting_raster("tmp.tif", raster_prediction)
+    
 
     ##################################################
     ##### FIGURE
