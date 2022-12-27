@@ -1,39 +1,30 @@
-from rasterio.plot import show
-import pandas as pd
-import matplotlib.pyplot as plt
-from shapely.geometry import Polygon
 import geopandas as gpd  
-import random 
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-from sdm_functions import Random_Points_in_polygon, mask_raster, resulting_raster
+import matplotlib.pyplot as plt
 import numpy as np
 import os
+import pandas as pd
+import random 
+from rasterio.plot import show
+from shapely.geometry import Polygon
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
 import sys
+
+from sdm_functions import Random_Points_in_polygon, mask_raster, resulting_raster
 
 if __name__ == "__main__":
     ### define parameters
-    locs_file = sys.argv[1]
-#     species_name = "species_02"
-
-    
-#     variables = {"elevation":"worldclim_2.1_30s_elev/wc2.1_30s_elev.tif",
-#                  "mean_temp":"worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif",
-#                  "annu_prec":"worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif",
-#                 }
+    locs_file = sys.argv[1] ### csv file with columns ["longitude" "latitude"]
     margin = float(sys.argv[2]) ### margin around the points (units according to crs)
     buffer_size = float(sys.argv[3]) ### buffer around the points to avoid seudo absenses (units according to crs)
-    variables_folder = sys.argv[4]
+    variables_folder = sys.argv[4] ### folder with raster layers
     crs = "epsg:4326"
-    # var_names = ["mean_temp", "annu_prec"]
-    # var_names = ["elevation"]
-
+    
     ##################################################
     ##### START 
     ##################################################
     ### extract species coord
     sp = pd.read_csv(locs_file).dropna(axis=0)    
-#     sp = locs.loc[locs["species"] == species_name, :].dropna(axis=0)
     sp["point"] = 1 ### presence
     pres_points = gpd.GeoDataFrame(sp, crs=crs, geometry=gpd.points_from_xy(sp.longitude, sp.latitude))
 
@@ -71,28 +62,17 @@ if __name__ == "__main__":
     coord_list = [(x,y) for x,y in zip(all_points["geometry"].x , all_points["geometry"].y)]
 
     ##################################################
+    ### load each raster and extract values by each point and from all the layer
     var_names = list(variables.keys())
-    raster_df = pd.DataFrame()
+    raster_df = pd.DataFrame() 
     
     for var in var_names:
         masked = mask_raster(variables[var], extent_poly, crs, "tmp.tif")
         all_points[var] = [x[0] for x in masked.sample(coord_list)]
         var_df = pd.DataFrame(np.array(masked.read()).reshape([1,-1]).T)
         raster_df = pd.concat([raster_df, var_df], axis=1)
-    ### load raster 
-#     elev = mask_raster("worldclim_2.1_30s_elev/wc2.1_30s_elev.tif", extent_poly, crs, "worldclim_2.1_30s_elev/wc2.1_30s_elev_tmp.tif")
-#     temp = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_1.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_1_tmp.tif")
-#     prec = mask_raster("worldclim_2.1_30s_bio/wc2.1_30s_bio_12.tif", extent_poly, crs, "worldclim_2.1_30s_bio/wc2.1_30s_bio_12_tmp.tif")
-
-    ### extract data from raster
-    
-#     coord_list = [(x,y) for x,y in zip(all_points["geometry"].x , all_points["geometry"].y)]
-
-#     all_points[var_names[0]] = [x[0] for x in elev.sample(coord_list)]
-#     all_points[var_names[1]] = [x[0] for x in temp.sample(coord_list)]
-#     all_points[var_names[2]] = [x[0] for x in prec.sample(coord_list)]
-
-    ### split dataset
+        
+    ### split dataset into train and test
     split_points = random.sample(range(len(all_points.index)), round(len(all_points.index)*0.25))
     train_x = all_points.iloc[split_points, :].loc[:, var_names]
     train_y = all_points.iloc[split_points, :].loc[:, "point"].to_list()
@@ -105,32 +85,17 @@ if __name__ == "__main__":
                                     oob_score = False, n_jobs = -1, bootstrap=True, random_state = 123)
     rf_model.fit(train_x, train_y)
 
-    ### predict test and compute 
+    ### predict test and compute rmse
     test_prediction = rf_model.predict(X = test_x)
     rmse = mean_squared_error(y_true = test_y, y_pred = test_prediction, squared = False)
-    print(rmse)
+    print("rmse value = ", rmse)
     
-    ### predict to complete rasters
-#     raster_df = pd.DataFrame()
-#     for var in var_names:
-        # var_df = pd.DataFrame(np.array(variables[var].read()).reshape([1,-1]).T)
-        # raster_df = pd.concat([raster_df, var_df], axis=1)
-            
-#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(elev.read()).reshape([1,-1]).T)], axis=1)
-#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(temp.read()).reshape([1,-1]).T)], axis=1)
-#     raster_df = pd.concat([raster_df, pd.DataFrame(np.array(prec.read()).reshape([1,-1]).T)], axis=1)
+    ### extrapolate prediction to complete rasters
     raster_df.columns = var_names
     raster_prediction = rf_model.predict(X = raster_df)
     
     ### proyect results
-#     print(variables[var_names[1]])
-#     results_raster = rasterio.open(variables[var_names[1]]).read(1)
-#     results_raster = variables[var_names[1]].read(1)
-#     results_transform = results_raster.transform
-#     results_raster = raster_prediction.reshape(results_raster.shape)
-#     print(results_transform)
     results_raster, results_transform = resulting_raster("tmp.tif", raster_prediction)
-    
 
     ##################################################
     ##### FIGURE
@@ -139,10 +104,6 @@ if __name__ == "__main__":
     plt.xlim([limits[0], limits[2]])
     plt.ylim([limits[1], limits[3]])
     ax.set_aspect("equal")
-    # show(elev.read(1), ax = ax, transform=elev.transform, cmap="gray") 
     show(results_raster, ax = ax, transform=results_transform, cmap="gray") 
-    pres_points.plot(ax = ax, color="green", edgecolor = "black")
-    # all_points.plot(ax = ax, c = all_points.point, edgecolor = "black")
-    # test_points.plot(ax = ax, c = test_prediction, edgecolor = "black")
-    
+    pres_points.plot(ax = ax, color="green", edgecolor = "black")   
     plt.show()

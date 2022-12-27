@@ -6,7 +6,10 @@ from rasterio.mask import mask
 
 
 def Random_Points_in_polygon(polygon, number, crs):   
-    '''https://www.matecdev.com/posts/random-points-in-polygon.html'''
+    '''
+    modified from:
+    https://www.matecdev.com/posts/random-points-in-polygon.html
+    '''
     df = pd.DataFrame()
     df["longitude"] = np.random.uniform( polygon.bounds["minx"], polygon.bounds["maxx"], number )
     df["latitude"] = np.random.uniform( polygon.bounds["miny"], polygon.bounds["maxy"], number )
