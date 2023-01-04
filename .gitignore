@@ -1,0 +1,8 @@
+shapefiles/
+variables/
+worldclim_2.1_30s_bio/
+worldclim_2.1_30s_elev/
+sdm.log
+SDM_v1.py
+species_01.csv
+species_02.csv
