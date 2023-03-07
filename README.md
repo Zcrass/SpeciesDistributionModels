@@ -15,25 +15,25 @@ We selected a Magnolia species called Magnolia iltisiana. This is a Tree that in
 For this guide we will use data downloaded from the Global Biodiversity Information Facility ([GBIF](https://www.gbif.org/)). the GBIF database contains a huge collection of information about all kinds of organisms. Our main interest in this database is the information about the distribution of the species.
 For this guide we will search and download the information about our species Magnolia iltisiana.
 
-![Main GBIF](/assets/images/assets/images/01_gbif_main.png "GBIF main site")
+![Main GBIF](README_files/images/01_gbif_main.png "GBIF main site")
 
 We have to select the correct species from the suggested results.
 
-![GBIF search](/assets/images/assets/images/02_gbif_search.png "GBIF search results")
+![GBIF search](README_files/images/02_gbif_search.png "GBIF search results")
 
 Here we can see all the data available for this species in the GBIF database. In our case our main interest are the ocurrences link above the images.
 
-![GBIF species data](/assets/images/assets/images/03_gbif_M_iltisiana.png "GBIF species data")
+![GBIF species data](README_files/images/03_gbif_M_iltisiana.png "GBIF species data")
 
 In the occurrences site we found a table with all kind of information about the species. In particular we can find the localities were the species has been found. This data is gatered from different sources. We can review this in the Basis of record and Dataset columns.
 
-![GBIF species occurrences](/assets/images/assets/images/04_gbif_occurrences.png "GBIF species occurrences")
+![GBIF species occurrences](README_files/images/04_gbif_occurrences.png "GBIF species occurrences")
 
 Once we reviewed the data of our species we can download the database using the link at the top of the website. This will generate an unique download link with their corresponding reference. It is recommended to save this information for future reference.
 
 As variables for our model we will use the 19 bioclimatic variables of [world clim](https://www.worldclim.org/data/worldclim21.html). We also going to include the elevation layer also from world clim. All layer were downloaded with a resolution of 30s and saved in a folder called *variables*.
 
-![Worldclim variables](/assets/images/assets/images/05_worldclim.png "Worldclim variables")
+![Worldclim variables](README_files/images/05_worldclim.png "Worldclim variables")
 
 #### Data preprocesing
 We will mainly use the pandas and geopandas library for the data management and matplotlib.pyplot for the figures. For the clustering and predictive models we will use the modules of scikit learn. Aditionally we will use a couple of custom functions from the file sdm_functions.py
@@ -54,6 +54,7 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import sys
+from yellowbrick.cluster import KElbowVisualizer
 
 from sdm_functions import sdm_functions as fun
 
@@ -76,13 +77,6 @@ sp
         vertical-align: middle;
     }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
 </style>
 <table border="1" class="dataframe">
   <thead>
@@ -390,7 +384,7 @@ As we can see the original file includes several columns. For our case we only n
 sp = pd.read_csv('magnolia_iltisiana.txt', sep='\t', usecols=['scientificName', 'decimalLatitude', 'decimalLongitude']).dropna().drop_duplicates()
 sp['presence'] = True
 sp = sp.reset_index()
-# sp.to_csv('magnolia_iltisiana_vars.csv', index=False) ### optional: saves data to a new csv file
+# sp.to_csv('magnolia_iltisiana_locs.csv', index=False) ### optional: saves data to a new csv file
 sp
 ```
 
@@ -403,13 +397,6 @@ sp
         vertical-align: middle;
     }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
 </style>
 <table border="1" class="dataframe">
   <thead>
@@ -548,3 +535,52 @@ plt.show()
 ![png](README_files/README_11_0.png)
     
 
+
+As we can see in the map most of the localities apear closed together but some others are far from the rest. As stated at the begining, GBIF data often include misidentifications or wrong cordinates. We cannot be sure if those remote localities are indeed far dispersed individuals or were wronly identified as *M. iltisiana*. If we include wrongly identified individuals in our analysis the results will be most likely wrong so we need to check this localities carefully.
+
+In this case we goin to implement a clustering method to identify if the conditions of these far dispersed individual are similar to the ones that apear close together. For this the first step is to extract the bioclimatic variables of each locality.
+
+
+```python
+##### list rasters layers
+variables = fun.list_rasters('variables/')
+var_names = list(variables.keys())
+
+### load each raster and extract values by each point and from all the layer
+raster_df = pd.DataFrame() 
+
+coords = [(x,y) for x, y in zip(sp.decimalLongitude, sp.decimalLatitude)]
+for var in var_names:
+    raster = rasterio.open(variables[var])
+    sp[var] = [x[0] for x in raster.sample(coords)]
+
+# sp.to_csv('magnolia_iltisiana_vars.csv', index=False) ### optional: saves data to a new csv file
+
+```
+
+As we dont know if the localities correspond only to *M. iltisiana* or includes more than one miss identified species we need to know how many groups we have in the data. For this we going to use the elbow method:
+
+
+
+```python
+visualizer = KElbowVisualizer(KMeans(), k=(1,10), timings= True)
+visualizer.fit(sp[var_names])        
+visualizer.show()   
+```
+    
+![png](README_files/README_15_1.png)
+    
+
+
+
+
+
+    <Axes: title={'center': 'Distortion Score Elbow for KMeans Clustering'}, xlabel='k', ylabel='distortion score'>
+
+
+
+As suggested by the elbow method the number of cluster of this data is 3
+
+Now we goin to generate the pseudo-absences data. Most of the models used for SDM required absence data to train and test the model. However this absences data often is difficult to obtain so we can generate pseudo-absences.
+
+For this we 
