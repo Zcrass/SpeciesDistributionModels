@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import rasterio
 from rasterio.mask import mask
+from shapely.geometry import Polygon
 
 
 class sdm_functions:
@@ -79,3 +80,20 @@ class sdm_functions:
         results_transform = base_raster.transform
         results_raster = new_vals.reshape(results_raster.shape)
         return results_raster, results_transform
+    
+    def extent_poly(df, margin_size, crs):
+        '''
+        Creates a geopandas dataframe based on the extenssion of an input dataframe and a defined margin.
+        '''
+        extent = [[(df.decimalLongitude.min() - float(margin_size)),
+                        (df.decimalLatitude.min()  - float(margin_size))],
+                  [(df.decimalLongitude.min() - float(margin_size)),
+                        (df.decimalLatitude.max()  + float(margin_size))],
+                  [(df.decimalLongitude.max() + float(margin_size)),
+                        (df.decimalLatitude.max()  + float(margin_size))],
+                  [(df.decimalLongitude.max() + float(margin_size)),
+                        (df.decimalLatitude.min()  - float(margin_size))]
+                 ]
+        extent = gpd.GeoDataFrame(index=[0], crs=crs, geometry=[Polygon(extent)])
+
+        return extent

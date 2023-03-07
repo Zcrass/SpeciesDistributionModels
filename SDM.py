@@ -17,6 +17,7 @@ import sys
 from sdm_functions import sdm_functions as fun
 
 if __name__ == "__main__":
+      
         ### define logger
         lg.basicConfig(filename='sdm.log', filemode='w', 
                         format='%(name)s - %(levelname)s - %(message)s')
@@ -61,16 +62,18 @@ if __name__ == "__main__":
         ##### create area limits 
         ##################################################
         logger.info(f'Defining area of interest...')
-        extent = [[(sp.decimalLongitude.min() - float(args.margin_size)),
-                        (sp.decimalLatitude.min()  - float(args.margin_size))],
-                  [(sp.decimalLongitude.min() - float(args.margin_size)),
-                        (sp.decimalLatitude.max()  + float(args.margin_size))],
-                  [(sp.decimalLongitude.max() + float(args.margin_size)),
-                        (sp.decimalLatitude.max()  + float(args.margin_size))],
-                  [(sp.decimalLongitude.max() + float(args.margin_size)),
-                        (sp.decimalLatitude.min()  - float(args.margin_size))]
-                 ]
-        extent = gpd.GeoDataFrame(index=[0], crs=crs, geometry=[Polygon(extent)])
+      #   extent = [[(sp.decimalLongitude.min() - float(args.margin_size)),
+      #                   (sp.decimalLatitude.min()  - float(args.margin_size))],
+      #             [(sp.decimalLongitude.min() - float(args.margin_size)),
+      #                   (sp.decimalLatitude.max()  + float(args.margin_size))],
+      #             [(sp.decimalLongitude.max() + float(args.margin_size)),
+      #                   (sp.decimalLatitude.max()  + float(args.margin_size))],
+      #             [(sp.decimalLongitude.max() + float(args.margin_size)),
+      #                   (sp.decimalLatitude.min()  - float(args.margin_size))]
+      #            ]
+      #   extent = gpd.GeoDataFrame(index=[0], crs=crs, geometry=[Polygon(extent)])
+
+        extent = fun.extent(sp, args.margin_size, "epsg:4326")
 
         ##################################################
         ### create buffer and pseudo absences
