@@ -67,7 +67,6 @@ sp = pd.read_csv('magnolia_iltisiana.csv', sep='\t')
 
 
 <div>
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -379,7 +378,6 @@ sp = sp.reset_index()
 
 
 <div>
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
