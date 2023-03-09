@@ -67,10 +67,6 @@ sp = pd.read_csv('magnolia_iltisiana.csv', sep='\t')
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 </style>
 <table border="1" class="dataframe">
   <thead>
@@ -383,10 +379,6 @@ sp = sp.reset_index()
 
 
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 </style>
 <table border="1" class="dataframe">
   <thead>
