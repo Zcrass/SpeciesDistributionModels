@@ -71,14 +71,6 @@ sp = pd.read_csv('magnolia_iltisiana.csv', sep='\t')
     .dataframe tbody tr th:only-of-type {
         vertical-align: middle;
     }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
 </style>
 <table border="1" class="dataframe">
   <thead>
@@ -394,14 +386,6 @@ sp = sp.reset_index()
 <style scoped>
     .dataframe tbody tr th:only-of-type {
         vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
     }
 </style>
 <table border="1" class="dataframe">
@@ -752,10 +736,6 @@ plt.show()
 ![png](https://raw.githubusercontent.com/Zcrass/SpeciesDistributionModels/main/assets/images/README_37_0.png)
     
 Finally we can save the resulting raster in a geotiff file.
-
-
-```python
-### Save raster 
 
 
 ```python
