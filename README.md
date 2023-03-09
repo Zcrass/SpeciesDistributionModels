@@ -200,7 +200,7 @@ sp = pd.read_csv('magnolia_iltisiana.csv', sep='\t')
       <td>Tracheophyta</td>
       <td>Magnoliopsida</td>
       <td>Magnoliales</td>
-      <td>Magnoliaceae</td>avoid
+      <td>Magnoliaceae</td>
       <td>Magnolia</td>
       <td>Magnolia iltisiana</td>
       <td>...</td>
